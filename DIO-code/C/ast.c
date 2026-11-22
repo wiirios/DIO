@@ -19,6 +19,7 @@ Node* parseArrayAcessNode(dynamicToken* toks);
 Node* parseFunctionCall(dynamicToken* toks);
 Node* parseStringGeneral(dynamicToken* toks);
 Node* createNumArray(dynamicToken* toks, Position pos);
+Node* parseEnumAccess(dynamicToken* toks);
 
 //Node* parseExpression(dynamicToken toks);
 
@@ -81,6 +82,7 @@ Node* parseFactor(dynamicToken* toks){
         node->type = NUMBERNODE;
         node->data.numberNode = malloc(sizeof(numberNode));
         node->data.numberNode->value = convertToDouble(tok.value);
+        node->arbitraryData.isNegation = checkTokenAt(toks, -2).identifier == NOTOPERATOR;
         node->pos = copyPos(&tok.pos);
 
         return node;
@@ -118,10 +120,19 @@ Node* parseFactor(dynamicToken* toks){
 }
 
 Node* parseTerm(dynamicToken* toks){
+    int not = 0;
+    if (checkCurrenToken(toks).identifier == NOTOPERATOR){
+        not = 1;
+        shiftToken(toks);
+    }
+    
     Node* left = parseFactor(toks);
     if (left == NULL) return NULL;
+    if (left->arbitraryData.isNegation == 0){
+        left->arbitraryData.isNegation = not;
+    }
 
-    while (checkCurrenToken(toks).identifier == MUL || checkCurrenToken(toks).identifier == DIV) {
+    while (checkCurrenToken(toks).identifier == MUL || checkCurrenToken(toks).identifier == DIV || checkCurrenToken(toks).identifier == OROPERATOR || checkCurrenToken(toks).identifier == ANDOPERATOR) {
         Token tokOp = shiftToken(toks);
         Node* right = parseFactor(toks);
 
@@ -238,9 +249,14 @@ Node* parseExpression(dynamicToken* toks){
         return pNode;
     }
 
+    Node* pNode = parseEnumAccess(toks);
+    if (pNode != NULL){
+        return pNode;
+    }
+
     Node* left = parseTerm(toks);
 
-    while (checkCurrenToken(toks).identifier == PLUS || checkCurrenToken(toks).identifier == MINUS || checkCurrenToken(toks).identifier == LESSOREQAUL || checkCurrenToken(toks).identifier == LESSTHAN || checkCurrenToken(toks).identifier == MOREOREQUAL || checkCurrenToken(toks).identifier == MORETHAN || checkCurrenToken(toks).identifier == LEFTRIGHTEQUAL) {
+    while (checkCurrenToken(toks).identifier == PLUS || checkCurrenToken(toks).identifier == MINUS || checkCurrenToken(toks).identifier == LESSOREQAUL || checkCurrenToken(toks).identifier == LESSTHAN || checkCurrenToken(toks).identifier == MOREOREQUAL || checkCurrenToken(toks).identifier == MORETHAN || checkCurrenToken(toks).identifier == LEFTRIGHTEQUAL || checkCurrenToken(toks).identifier == NOTEQUAL) {
         Token tokOp = shiftToken(toks);
         Node* right = parseTerm(toks);
 
@@ -429,13 +445,16 @@ Node* parseNewVariable(dynamicToken* toks){
         int len = 0;
         int pos_ = g_index;
 
-        while (toks->items[pos_++].identifier != QUOTE){
+        while (toks->items[pos_].identifier != QUOTE){
             len += strlen(toks->items[pos_].value);
+            pos_++;
         }
         char* value = "";
         if (len > 0){
             char* buffer = malloc(len);
             
+            //printf("%s %i\n", checkCurrenToken(toks).value, len);
+
             strcpy(buffer, checkCurrenToken(toks).value);
             shiftToken(toks);
             while(checkCurrenToken(toks).identifier != QUOTE){
@@ -608,6 +627,7 @@ Node* parseCondition(dynamicToken* toks){
         else {
             pNode->data.condition->binOpNode = parseExpression(toks);
         }
+
         pNode->data.condition->codeBlock = parseCodeBlock(toks, CONDITION);
 
         if (if_){
@@ -779,7 +799,7 @@ Node* parseFunctionCall(dynamicToken* toks){
     Token tok = checkCurrenToken(toks);
 
     int namespaceAccessor = 0;
-    if (tok.identifier == IDENTIFIER && checkTokenAt(toks, 1).identifier == ARROWACCESSOR){
+    if (tok.identifier == IDENTIFIER && checkTokenAt(toks, 1).identifier == ARROWACCESSOR && checkTokenAt(toks, 3).identifier == LPAREN){
         namespaceAccessor = getNamespaceMap(tok.value);
 
         shiftToken(toks);
@@ -957,6 +977,67 @@ Node* parseArrayAcessNode(dynamicToken* toks){
     return indexNode;
 }
 
+Node* parseEnum(dynamicToken* toks){
+
+    if (checkCurrenToken(toks).identifier == KEYWORD && strcmp(checkCurrenToken(toks).value, "typedef") == 0 && strcmp(checkTokenAt(toks, 1).value, "enum") == 0){
+        Position pos = checkCurrenToken(toks).pos;
+        shiftToken(toks); //typedef
+        shiftToken(toks); //enum
+
+        Node* pNode = createNode();
+        pNode->pos = copyPos(&pos);
+        pNode->type = ENUMCREATE;
+        pNode->data.enumTypeNode = malloc(sizeof(enumTypeNode*));
+        pNode->data.enumTypeNode->enumName = checkCurrenToken(toks).value;
+        pNode->data.enumTypeNode->enumName = checkCurrenToken(toks).pos.nameSpace;
+
+        shiftToken(toks); //name
+        shiftToken(toks); //{
+
+        while (checkCurrenToken(toks).identifier != RSQUIGLYPAREN){
+            //TODO: FINISI LOGIC
+        }
+
+        return pNode;
+    }
+
+    return NULL;
+}
+
+Node* parseEnumAccess(dynamicToken* toks){
+    Token tok = checkCurrenToken(toks);
+
+    int nameSpace = tok.pos.nameSpace;
+    int mv = 0;
+    if (tok.identifier == IDENTIFIER && checkTokenAt(toks, 1).identifier == ARROWACCESSOR && checkTokenAt(toks, 2).identifier == IDENTIFIER && checkTokenAt(toks, 3).identifier == ARROWACCESSOR){
+        nameSpace = getNamespaceMap(tok.value);
+        mv = 1;
+    }
+
+    if (tok.identifier == IDENTIFIER && checkTokenAt(toks, 1).identifier == ARROWACCESSOR && !(checkTokenAt(toks, 3).identifier == LPAREN)){
+        Node* retNode = createNode();
+        retNode->pos = copyPos(&tok.pos);
+        if (mv){
+            shiftToken(toks);
+            shiftToken(toks);
+        }
+
+        retNode->type = ENUMACESS;
+        retNode->data.enumAccessNode = malloc(sizeof(enumAccessNode*));
+        retNode->data.enumAccessNode->namespace = nameSpace;
+        retNode->data.enumAccessNode->enumName = tok.value;
+        shiftToken(toks);
+        shiftToken(toks);
+        retNode->data.enumAccessNode->accessorName = checkCurrenToken(toks).value;
+        shiftToken(toks);
+        retNode->pos->end = checkCurrenToken(toks).pos.end;
+
+        return retNode;
+    }
+
+    return NULL;
+}
+
 Node* parseProgram(dynamicToken* toks) {
     //printf("AST!\n");
     Node* pNode = createNode();
@@ -1030,6 +1111,9 @@ Node* parseGenericNode(dynamicToken* toks){
     }
     if (node == NULL){
         node = exitNodeParse(toks);
+    }
+    if (node == NULL){
+        node = parseEnum(toks);
     }
     if (node == NULL){
         //this should probably stay last?

@@ -36,6 +36,8 @@ typedef enum {
     UNKNOWNNODE,
     NULLNODE,
     EXITNODE,
+    ENUMACESS,
+    ENUMCREATE,
 } nodeType;
 
 typedef struct programNode {
@@ -152,6 +154,26 @@ typedef struct exitNode {
     
 } exitNode;
 
+typedef struct arbitraryData {
+    int isNegation;
+} arbitraryData;
+
+typedef struct enumAccessNode {
+    int namespace;
+    char* enumName;
+    char* accessorName;
+} enumAccessNode;
+
+typedef struct enumValues {
+    char* name;
+    int value;
+};
+
+typedef struct enumTypeNode {
+    int namespace;
+    char* enumName;
+    dynamicNode enumValues;
+} enumTypeNode;
 
 typedef struct Node {
     nodeType type;
@@ -174,7 +196,10 @@ typedef struct Node {
         struct returnNode* nodeRetun;
         struct nullNode* nullNode;
         struct exitNode* exitNode;
+        struct enumAccessNode* enumAccessNode;
+        struct enumTypeNode* enumTypeNode;
     } data;
+    struct arbitraryData arbitraryData;
     Position* pos;
 } Node;
 

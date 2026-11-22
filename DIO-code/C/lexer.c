@@ -9,7 +9,7 @@
 #include"../Headers/appInfo.h"
 #include"../Headers/globals.h"
 
-typedef struct SpecialVars{
+typedef struct {
     char* name;
     dynamicToken toks;
 } SpecialVars;
@@ -192,6 +192,7 @@ dynamicToken lex(const char* code, char* fileName, dynamicToken toks, int isLast
                 c = moveByChar(&code, &line, &charPos_, 1);
                 if (c == '-'){
                     c = moveByChar(&code, &line, &charPos_, 1);
+                    //printf("%c", c);
                     //increment
                     if (c != '-'){
                         c = moveByChar(&code, &line, &charPos_, -1);
@@ -216,6 +217,63 @@ dynamicToken lex(const char* code, char* fileName, dynamicToken toks, int isLast
                 }
                 else if (c == '>'){
                     DYN_PUSH(createToken("->", ARROWACCESSOR, createPosition(charPos_, charPos_, line, fileName, namespace)), toks);
+                }
+                else if (c == 'o'){
+                    c = moveByChar(&code, &line, &charPos_, 1);
+                    if (c == 'r'){
+                        tok = createToken("||", OROPERATOR, createPosition(charPos_ - 2, charPos_, line, fileName, namespace));
+                        c = moveByChar(&code, &line, &charPos_, 1);
+
+                        if (c != ' ' && c != '\n'){
+                            raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-or'?")
+                        }
+                        c = moveByChar(&code, &line, &charPos_, -1);
+                    }
+                    else{
+                        raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-or'?")
+                    }
+                }
+                else if (c == 'a'){
+                    c = moveByChar(&code, &line, &charPos_, 1);
+                    if (c == 'n'){
+                        c = moveByChar(&code, &line, &charPos_, 1);
+                        if (c == 'd'){
+                            tok = createToken("&&", ANDOPERATOR, createPosition(charPos_ - 2, charPos_, line, fileName, namespace));
+                            c = moveByChar(&code, &line, &charPos_, 1);
+
+                            if (c != ' ' && c != '\n'){
+                                raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-and'?")
+                            }
+                            c = moveByChar(&code, &line, &charPos_, -1);
+                        }
+                        else{
+                            raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-and'?")
+                        }
+                    }
+                    else{
+                        raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-and'?")
+                    }
+                }
+                else if (c == 'n'){
+                    c = moveByChar(&code, &line, &charPos_, 1);
+                    if (c == 'o'){
+                        c = moveByChar(&code, &line, &charPos_, 1);
+                        if (c == 't'){
+                            tok = createToken("!", NOTOPERATOR, createPosition(charPos_ - 2, charPos_, line, fileName, namespace));
+                            c = moveByChar(&code, &line, &charPos_, 1);
+
+                            if (c != ' ' && c != '\n'){
+                                raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-not'?")
+                            }
+                            c = moveByChar(&code, &line, &charPos_, -1);
+                        }
+                        else{
+                            raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-not'?")
+                        }
+                    }
+                    else{
+                        raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "Incorrect minus operator, did you mean '-not'?")
+                    }
                 }
                 else{
                     c = moveByChar(&code, &line, &charPos_, -1);
@@ -275,8 +333,37 @@ dynamicToken lex(const char* code, char* fileName, dynamicToken toks, int isLast
             case ',':
                 tok = createToken(",", COMMA, createPosition(charPos_, charPos_, line, fileName, namespace));
                 break;
-            case '.':
+            case '|':
+                c = moveByChar(&code, &line, &charPos_, 1);
+                if (c == '|'){
+                    tok = createToken("||", OROPERATOR, createPosition(charPos_ - 1, charPos_, line, fileName, namespace));
+                }
+                else{
+                    c = moveByChar(&code, &line, &charPos_, -1);
+                    raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "'|' is not valid token, perhaps you were thinking about '||'?");
+                }
+                break;
+            case '&':
+                c = moveByChar(&code, &line, &charPos_, 1);
+                if (c == '&'){
+                    tok = createToken("&&", ANDOPERATOR, createPosition(charPos_ - 1, charPos_, line, fileName, namespace));
+                }
+                else{
+                    c = moveByChar(&code, &line, &charPos_, -1);
+                    raiseErrorMacro(createPosition(charPos_, charPos_, line, fileName, namespace), "'&' is not valid token, perhaps you were thinking about '&&'?");
+                }
+                break;
             case '!':
+                c = moveByChar(&code, &line, &charPos_, 1);
+                if (c == '='){
+                    tok = createToken("!", NOTEQUAL, createPosition(charPos_, charPos_, line, fileName, namespace));
+                }
+                else{
+                    c = moveByChar(&code, &line, &charPos_, -1);
+                    tok = createToken("!", NOTOPERATOR, createPosition(charPos_, charPos_, line, fileName, namespace));
+                }
+                break;
+            case '.': // I believe this is redundand?
             case '?':{ //had to do {} for it to compile and run on MAC btw.
                 char* buf = malloc(2 * sizeof(char));
                 buf[0] = c;
